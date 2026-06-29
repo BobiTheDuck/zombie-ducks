@@ -1,0 +1,1272 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Zombie Ducks</title>
+  <style>
+    :root {
+      --pond: #172c33;
+      --deep: #091316;
+      --reed: #5f1d25;
+      --duck: #f4c72f;
+      --bill: #f07322;
+      --zombie: #71d64f;
+      --zombie-dark: #24512e;
+      --wall: #2e3940;
+      --pellet: #c8ff3d;
+      --ink: #e7ffd7;
+      --blood: #b8242d;
+      --toxic: #a8ff2f;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      color: var(--ink);
+      font-family: "Courier New", ui-monospace, SFMono-Regular, Menlo, monospace;
+      background:
+        linear-gradient(rgba(255,255,255,.035) 2px, transparent 2px),
+        radial-gradient(circle at 16% 22%, rgba(184, 36, 45, .38) 0 6%, transparent 7%),
+        radial-gradient(circle at 82% 12%, rgba(168, 255, 47, .22) 0 5%, transparent 6%),
+        radial-gradient(circle at 72% 78%, rgba(0, 0, 0, .38) 0 12%, transparent 13%),
+        linear-gradient(160deg, #111719, #273138 44%, #090d0f);
+      background-size: 100% 4px, auto, auto, auto, auto;
+      overflow: hidden;
+      image-rendering: pixelated;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 20;
+      background:
+        repeating-linear-gradient(
+          0deg,
+          rgba(0, 0, 0, .16) 0 2px,
+          transparent 2px 4px
+        );
+      mix-blend-mode: multiply;
+    }
+
+    main {
+      width: min(96vw, 900px);
+      display: grid;
+      gap: 14px;
+      padding: 16px;
+    }
+
+    .hud {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 12px;
+      border: 4px solid #4b5960;
+      border-radius: 0;
+      background: #14191c;
+      box-shadow:
+        0 0 0 4px #070b0d,
+        0 12px 0 rgba(0, 0, 0, .38);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(1.2rem, 3vw, 2rem);
+      line-height: 1;
+      color: var(--toxic);
+      text-shadow: 3px 3px 0 #000, 5px 5px 0 var(--blood);
+      text-transform: uppercase;
+    }
+
+    .stats {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      font-weight: 800;
+    }
+
+    .actions {
+      display: flex;
+      justify-content: end;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .pill {
+      padding: 7px 10px;
+      border-radius: 0;
+      color: var(--toxic);
+      background: #0a1012;
+      border: 3px solid #38464c;
+      white-space: nowrap;
+      text-shadow: 2px 2px 0 #000;
+    }
+
+    button {
+      justify-self: end;
+      border: 3px solid #ff6f38;
+      border-radius: 0;
+      padding: 10px 14px;
+      color: #fff7d1;
+      background: #781820;
+      font: inherit;
+      font-weight: 900;
+      cursor: pointer;
+      text-transform: uppercase;
+      box-shadow: 0 5px 0 #33080d;
+    }
+
+    button:active {
+      transform: translateY(3px);
+      box-shadow: 0 2px 0 #33080d;
+    }
+
+    .stage {
+      position: relative;
+      margin: 0 auto;
+      width: min(96vw, 820px);
+      aspect-ratio: 21 / 17;
+      border: 6px solid #070b0d;
+      border-radius: 0;
+      overflow: hidden;
+      background:
+        repeating-linear-gradient(0deg, rgba(255,255,255,.035) 0 2px, transparent 2px 4px),
+        linear-gradient(rgba(168,255,47,.09) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(168,255,47,.09) 1px, transparent 1px),
+        radial-gradient(circle at 22% 34%, rgba(184, 36, 45, .34) 0 5%, transparent 6%),
+        radial-gradient(circle at 80% 65%, rgba(168, 255, 47, .2) 0 7%, transparent 8%),
+        var(--pond);
+      background-size:
+        100% 4px,
+        calc(100% / 21) calc(100% / 17),
+        calc(100% / 21) calc(100% / 17),
+        auto,
+        auto,
+        auto;
+      box-shadow:
+        0 0 0 4px #4b5960,
+        0 0 30px rgba(168, 255, 47, .2),
+        0 24px 0 rgba(0, 0, 0, .36);
+      touch-action: none;
+    }
+
+    .cell {
+      position: absolute;
+      width: calc(100% / 21);
+      height: calc(100% / 17);
+      left: calc(var(--x) * 100% / 21);
+      top: calc(var(--y) * 100% / 17);
+    }
+
+    .wall {
+      border-radius: 0;
+      background:
+        linear-gradient(135deg, rgba(255,255,255,.1) 0 16%, transparent 17% 42%, rgba(0,0,0,.22) 43%),
+        repeating-linear-gradient(90deg, transparent 0 8px, rgba(0,0,0,.18) 8px 10px),
+        var(--wall);
+      box-shadow:
+        inset 0 -5px 0 rgba(0,0,0,.42),
+        inset 4px 0 0 rgba(255,255,255,.08);
+    }
+
+    .pellet::after {
+      content: "";
+      position: absolute;
+      width: 22%;
+      height: 22%;
+      left: 39%;
+      top: 39%;
+      border-radius: 0;
+      background: var(--pellet);
+      box-shadow:
+        0 0 0 2px rgba(168, 255, 47, .2),
+        0 0 10px rgba(168, 255, 47, .9);
+    }
+
+    .lily::before,
+    .lily::after {
+      content: "";
+      position: absolute;
+      border-radius: 0;
+      background: rgba(184, 36, 45, .48);
+    }
+
+    .lily::before {
+      width: 68%;
+      height: 36%;
+      left: 16%;
+      top: 32%;
+      box-shadow: 8px 0 0 rgba(168, 255, 47, .25);
+    }
+
+    .lily::after {
+      width: 24%;
+      height: 24%;
+      left: 56%;
+      top: 26%;
+      background: var(--pond);
+    }
+
+    .portal {
+      background:
+        repeating-linear-gradient(90deg, transparent 0 6px, rgba(0,0,0,.35) 6px 10px),
+        radial-gradient(circle, rgba(168, 255, 47, .9) 0 18%, transparent 19%),
+        #17331e;
+      box-shadow:
+        inset 0 0 0 4px var(--toxic),
+        inset 0 0 0 8px #071006,
+        0 0 18px rgba(168, 255, 47, .85);
+    }
+
+    .portal::before,
+    .portal::after {
+      content: "";
+      position: absolute;
+      background: var(--toxic);
+      box-shadow: 0 0 10px rgba(168, 255, 47, .9);
+    }
+
+    .portal::before {
+      width: 18%;
+      height: 70%;
+      left: 41%;
+      top: 15%;
+    }
+
+    .portal::after {
+      width: 70%;
+      height: 18%;
+      left: 15%;
+      top: 41%;
+    }
+
+    .actor {
+      position: absolute;
+      width: calc(100% / 21);
+      height: calc(100% / 17);
+      transform: translate(
+        calc(var(--x) * 100%),
+        calc(var(--y) * 100%)
+      );
+      transition: none;
+      will-change: transform;
+      z-index: 5;
+      display: grid;
+      place-items: center;
+    }
+
+    .name-tag {
+      position: absolute;
+      left: 50%;
+      top: -54%;
+      transform: translateX(-50%);
+      padding: 1px 4px;
+      color: #fff7d1;
+      background: #0a1012;
+      border: 2px solid var(--blood);
+      font-size: clamp(.46rem, 1.4vw, .7rem);
+      font-weight: 900;
+      line-height: 1.1;
+      text-transform: uppercase;
+      text-shadow: 1px 1px 0 #000;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+
+    .duck,
+    .zombie {
+      position: relative;
+      width: 78%;
+      height: 64%;
+      border-radius: 0;
+      filter: drop-shadow(5px 5px 0 rgba(0, 0, 0, .45));
+    }
+
+    .duck {
+      background: var(--duck);
+      box-shadow:
+        inset 0 -10px 0 #c9891c,
+        inset 8px 0 0 #ffe071;
+    }
+
+    .duck::before,
+    .zombie::before {
+      content: "";
+      position: absolute;
+      width: 42%;
+      height: 48%;
+      right: -2%;
+      top: -32%;
+      border-radius: 0;
+      background: inherit;
+    }
+
+    .duck::after,
+    .zombie::after {
+      content: "";
+      position: absolute;
+      width: 32%;
+      height: 20%;
+      right: -26%;
+      top: -7%;
+      border-radius: 0;
+      background: var(--bill);
+      box-shadow: inset 0 -5px 0 #aa3d16;
+    }
+
+    .eye {
+      position: absolute;
+      width: 10%;
+      height: 12%;
+      right: 11%;
+      top: -16%;
+      border-radius: 0;
+      background: #111;
+      z-index: 2;
+    }
+
+    .wing {
+      position: absolute;
+      width: 38%;
+      height: 26%;
+      left: 16%;
+      top: 32%;
+      border-radius: 0;
+      background: rgba(45, 28, 12, .28);
+    }
+
+    .zombie {
+      background: var(--zombie);
+      box-shadow:
+        inset 0 -10px 0 var(--zombie-dark),
+        inset 8px 0 0 #b6ff8b;
+    }
+
+    .zombie .eye {
+      width: 12%;
+      height: 14%;
+      background: #f6fff1;
+      box-shadow:
+        9px 0 0 #ff2448,
+        0 0 8px #ff2448;
+    }
+
+    .zombie .wing {
+      background: #17331e;
+      opacity: .8;
+      box-shadow: 8px 8px 0 rgba(184, 36, 45, .75);
+    }
+
+    .zombie .stitch {
+      position: absolute;
+      left: 14%;
+      top: 13%;
+      width: 44%;
+      height: 5px;
+      background: #142719;
+      box-shadow:
+        9px 7px 0 #142719,
+        18px -7px 0 #142719,
+        24px 10px 0 var(--blood);
+    }
+
+    .message {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      z-index: 10;
+      padding: 20px;
+      text-align: center;
+      background: rgba(0, 0, 0, .58);
+      color: white;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .2s ease;
+    }
+
+    .message.show {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .message-card {
+      max-width: 430px;
+      padding: 24px;
+      border: 4px solid var(--toxic);
+      border-radius: 0;
+      background: #111719;
+      box-shadow:
+        0 0 0 4px #000,
+        12px 12px 0 rgba(184, 36, 45, .78);
+    }
+
+    .message h2 {
+      margin: 0 0 8px;
+      font-size: clamp(1.6rem, 5vw, 3rem);
+      color: var(--toxic);
+      text-shadow: 3px 3px 0 #000, 5px 5px 0 var(--blood);
+      text-transform: uppercase;
+    }
+
+    .message p {
+      margin: 0 0 16px;
+      font-weight: 700;
+    }
+
+    .settings-page {
+      position: fixed;
+      inset: 0;
+      z-index: 30;
+      display: grid;
+      place-items: center;
+      padding: 18px;
+      background:
+        repeating-linear-gradient(0deg, rgba(0,0,0,.22) 0 2px, transparent 2px 4px),
+        rgba(0, 0, 0, .72);
+    }
+
+    .settings-page[hidden] {
+      display: none;
+    }
+
+    .settings-card {
+      width: min(92vw, 560px);
+      padding: 22px;
+      border: 4px solid var(--toxic);
+      background: #111719;
+      box-shadow:
+        0 0 0 4px #000,
+        12px 12px 0 rgba(184, 36, 45, .78);
+    }
+
+    .settings-card h2 {
+      margin: 0 0 8px;
+      color: var(--toxic);
+      font-size: clamp(1.5rem, 5vw, 2.6rem);
+      text-shadow: 3px 3px 0 #000, 5px 5px 0 var(--blood);
+      text-transform: uppercase;
+    }
+
+    .settings-card p {
+      margin: 0 0 14px;
+      font-weight: 800;
+    }
+
+    .difficulty-list {
+      display: grid;
+      gap: 8px;
+      margin: 0 0 18px;
+    }
+
+    .difficulty-option {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 10px;
+      align-items: center;
+      padding: 10px;
+      border: 3px solid #38464c;
+      background: #0a1012;
+      color: var(--ink);
+      font-weight: 900;
+      cursor: pointer;
+    }
+
+    .difficulty-option input {
+      accent-color: var(--toxic);
+      width: 18px;
+      height: 18px;
+    }
+
+    .difficulty-option:has(input:checked) {
+      border-color: var(--toxic);
+      color: var(--toxic);
+      box-shadow: 0 0 14px rgba(168, 255, 47, .32);
+    }
+
+    .difficulty-note {
+      display: block;
+      color: #fff7d1;
+      font-size: .78rem;
+      line-height: 1.35;
+      text-transform: none;
+    }
+
+    .settings-actions {
+      display: flex;
+      justify-content: end;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .touch-controls {
+      display: none;
+      grid-template-columns: repeat(3, 52px);
+      gap: 8px;
+      justify-content: center;
+      margin: 0 auto;
+    }
+
+    .touch-controls button {
+      justify-self: auto;
+      width: 52px;
+      height: 48px;
+      padding: 0;
+      font-size: 1.2rem;
+    }
+
+    .touch-controls .blank {
+      visibility: hidden;
+    }
+
+    @media (max-width: 720px) {
+      main {
+        padding: 10px;
+      }
+
+      .hud {
+        grid-template-columns: 1fr;
+        text-align: center;
+      }
+
+      button {
+        justify-self: center;
+      }
+
+      .actions,
+      .settings-actions {
+        justify-content: center;
+      }
+
+      .touch-controls {
+        display: grid;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="hud" aria-label="Game status">
+      <h1>Zombie Ducks</h1>
+      <div class="stats">
+        <span class="pill">Score <span id="score">0</span></span>
+        <span class="pill">Snacks <span id="left">0</span></span>
+        <span class="pill">Best <span id="best">0</span></span>
+        <span class="pill">Mode <span id="difficultyLabel">Medium</span></span>
+      </div>
+      <div class="actions">
+        <button id="settings" type="button">Settings</button>
+        <button id="restart" type="button">Restart</button>
+      </div>
+    </section>
+
+    <section class="stage" id="stage" aria-label="Zombie Ducks game board">
+      <div class="message show" id="message">
+        <div class="message-card">
+          <h2>Zombie Ducks</h2>
+          <p>Grab the glow scraps. Use side gates to ditch the undead ducks.</p>
+          <button id="start" type="button">Start</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="settings-page" id="settingsPage" aria-label="Settings" hidden>
+      <div class="settings-card">
+        <h2>Settings</h2>
+        <p>Difficulty changes how many named zombie ducks chase you and how fast they glide.</p>
+        <div class="difficulty-list" id="difficultyList"></div>
+        <div class="settings-actions">
+          <button id="closeSettings" type="button">Close</button>
+          <button id="applySettings" type="button">Apply</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="touch-controls" aria-label="Touch controls">
+      <span class="blank"></span>
+      <button type="button" data-dir="up" aria-label="Move up">▲</button>
+      <span class="blank"></span>
+      <button type="button" data-dir="left" aria-label="Move left">◀</button>
+      <button type="button" data-dir="down" aria-label="Move down">▼</button>
+      <button type="button" data-dir="right" aria-label="Move right">▶</button>
+    </section>
+  </main>
+
+  <script>
+    const map = [
+      "#####################",
+      "#.........#.........#",
+      "#.###.###.#.###.###.#",
+      "#.#.....#...#.....#.#",
+      "#.#.###.#####.###.#.#",
+      "#...#.........#.....#",
+      "###.#.###.#.###.#.###",
+      "#.....#...#...#.....#",
+      "..###.#.#####.#.###..",
+      "#...#...#...#...#...#",
+      "###.#.###.#.###.#.###",
+      "#.....#.......#.....#",
+      "#.###.#.#####.#.###.#",
+      "#.#.....#...#.....#.#",
+      "#.###.###.#.###.###.#",
+      "#.........#.........#",
+      "#####################"
+    ];
+
+    const width = map[0].length;
+    const height = map.length;
+    const turnAssistCells = 0.48;
+    const portalRow = 8;
+    const difficultySettings = {
+      "Really Easy": {
+        duckSpeed: 5.05,
+        zombieSpeed: 1.8,
+        zombieCount: 2,
+        note: "Bobi and Mylo only. Slow chase."
+      },
+      "Easy": {
+        duckSpeed: 4.95,
+        zombieSpeed: 2.3,
+        zombieCount: 3,
+        note: "Three zombie ducks. Gentle pressure."
+      },
+      "Medium": {
+        duckSpeed: 4.8,
+        zombieSpeed: 3.1,
+        zombieCount: 4,
+        note: "Four zombie ducks. Balanced chaos."
+      },
+      "Hard": {
+        duckSpeed: 4.65,
+        zombieSpeed: 4,
+        zombieCount: 5,
+        note: "Five zombie ducks. Tight escapes."
+      },
+      "Horribly Hard": {
+        duckSpeed: 4.5,
+        zombieSpeed: 5.2,
+        zombieCount: 6,
+        note: "Six fast zombie ducks. Deep trouble."
+      }
+    };
+    const difficultyNames = Object.keys(difficultySettings);
+    const zombieBaseNames = ["Bobi", "Mylo"];
+    const randomZombieNames = ["Luna", "Kai", "Mina", "Nova", "Jax", "Ivy", "Rex", "Zara", "Ozzy", "Nico"];
+    const zombieSpawns = [
+      { x: 19, y: 15, mood: "direct" },
+      { x: 19, y: 1, mood: "ambush" },
+      { x: 1, y: 15, mood: "wander" },
+      { x: 9, y: 9, mood: "direct" },
+      { x: 11, y: 9, mood: "ambush" },
+      { x: 5, y: 7, mood: "wander" }
+    ];
+    const dirs = {
+      up: { name: "up", x: 0, y: -1 },
+      down: { name: "down", x: 0, y: 1 },
+      left: { name: "left", x: -1, y: 0 },
+      right: { name: "right", x: 1, y: 0 }
+    };
+
+    const stage = document.querySelector("#stage");
+    const scoreEl = document.querySelector("#score");
+    const leftEl = document.querySelector("#left");
+    const bestEl = document.querySelector("#best");
+    const difficultyLabel = document.querySelector("#difficultyLabel");
+    const restartButton = document.querySelector("#restart");
+    const settingsButton = document.querySelector("#settings");
+    const startButton = document.querySelector("#start");
+    const message = document.querySelector("#message");
+    const settingsPage = document.querySelector("#settingsPage");
+    const difficultyList = document.querySelector("#difficultyList");
+    const closeSettingsButton = document.querySelector("#closeSettings");
+    const applySettingsButton = document.querySelector("#applySettings");
+
+    let pellets = new Set();
+    let score = 0;
+    let best = Number(localStorage.getItem("zombieDucksBest") || localStorage.getItem("duckDashBest") || 0);
+    let difficulty = difficultyNames.includes(localStorage.getItem("zombieDucksDifficulty")) ?
+      localStorage.getItem("zombieDucksDifficulty") :
+      "Medium";
+    let running = false;
+    let loopId = 0;
+    let lastFrame = 0;
+    let direction = dirs.right;
+    let queuedDirection = dirs.right;
+    let duck = { x: 1, y: 1 };
+    let zombies = [];
+    let duckNode;
+    let zombieNodes = [];
+
+    bestEl.textContent = best;
+    difficultyLabel.textContent = difficulty;
+
+    function activeDifficulty() {
+      return difficultySettings[difficulty];
+    }
+
+    function shuffledNames() {
+      return [...randomZombieNames].sort(() => Math.random() - 0.5);
+    }
+
+    function createZombies() {
+      const extraNames = shuffledNames();
+      const names = [
+        ...zombieBaseNames,
+        ...extraNames
+      ];
+
+      return zombieSpawns.slice(0, activeDifficulty().zombieCount).map((spawn, index) => ({
+        ...spawn,
+        name: names[index] || `Z-${index + 1}`,
+        direction: null
+      }));
+    }
+
+    function renderDifficultyOptions() {
+      difficultyList.innerHTML = "";
+
+      difficultyNames.forEach((name) => {
+        const label = document.createElement("label");
+        label.className = "difficulty-option";
+        label.innerHTML = `
+          <input type="radio" name="difficulty" value="${name}">
+          <span>${name}<span class="difficulty-note">${difficultySettings[name].note}</span></span>
+        `;
+        label.querySelector("input").checked = name === difficulty;
+        difficultyList.append(label);
+      });
+    }
+
+    function key(x, y) {
+      return `${x},${y}`;
+    }
+
+    function isWall(x, y) {
+      if (x < 0 || x >= width || y < 0 || y >= height) return true;
+      return map[y]?.[x] === "#";
+    }
+
+    function isPortal(x, y) {
+      return y === portalRow && (x === 0 || x === width - 1);
+    }
+
+    function isZombieWall(x, y) {
+      return isWall(x, y) || isPortal(x, y);
+    }
+
+    function setCellPosition(node, x, y) {
+      node.style.setProperty("--x", x);
+      node.style.setProperty("--y", y);
+    }
+
+    function createDuck(className, name = "") {
+      const wrap = document.createElement("div");
+      wrap.className = "actor";
+      const body = document.createElement("div");
+      body.className = className;
+      body.innerHTML = '<span class="eye"></span><span class="wing"></span>';
+      if (className === "zombie") {
+        body.innerHTML += '<span class="stitch"></span>';
+        const tag = document.createElement("span");
+        tag.className = "name-tag";
+        tag.textContent = name;
+        wrap.append(tag);
+      }
+      wrap.append(body);
+      return wrap;
+    }
+
+    function drawBoard() {
+      stage.querySelectorAll(".cell, .actor").forEach((node) => node.remove());
+      pellets = new Set();
+
+      for (let y = 0; y < height; y += 1) {
+        for (let x = 0; x < width; x += 1) {
+          if (map[y][x] === "#") {
+            const wall = document.createElement("div");
+            wall.className = "cell wall";
+            setCellPosition(wall, x, y);
+            stage.append(wall);
+          } else if (isPortal(x, y)) {
+            const portal = document.createElement("div");
+            portal.className = "cell portal";
+            setCellPosition(portal, x, y);
+            stage.append(portal);
+          } else if (!isSpawn(x, y)) {
+            pellets.add(key(x, y));
+            const pellet = document.createElement("div");
+            pellet.className = "cell pellet";
+            pellet.dataset.key = key(x, y);
+            setCellPosition(pellet, x, y);
+            stage.append(pellet);
+          } else if ((x + y) % 2 === 0) {
+            const lily = document.createElement("div");
+            lily.className = "cell lily";
+            setCellPosition(lily, x, y);
+            stage.append(lily);
+          }
+        }
+      }
+
+      duckNode = createDuck("duck");
+      stage.append(duckNode);
+
+      zombieNodes = zombies.map((zombie) => createDuck("zombie", zombie.name));
+      zombieNodes.forEach((node) => stage.append(node));
+    }
+
+    function isSpawn(x, y) {
+      return (x === 1 && y === 1) || zombieSpawns.some((spawn) => spawn.x === x && spawn.y === y);
+    }
+
+    function resetGame(autoStart = false) {
+      cancelAnimationFrame(loopId);
+      score = 0;
+      duck = { x: 1, y: 1 };
+      direction = dirs.right;
+      queuedDirection = dirs.right;
+      zombies = createZombies();
+      drawBoard();
+      updateActors();
+      updateHud();
+      running = autoStart;
+      lastFrame = performance.now();
+
+      if (autoStart) {
+        hideMessage();
+        loopId = requestAnimationFrame(loop);
+      } else {
+        showMessage("Zombie Ducks", "Grab the glow scraps. Use side gates to ditch the undead ducks.", "Start");
+      }
+    }
+
+    function updateHud() {
+      scoreEl.textContent = score;
+      leftEl.textContent = pellets.size;
+      bestEl.textContent = best;
+      difficultyLabel.textContent = difficulty;
+    }
+
+    function updateActors() {
+      setCellPosition(duckNode, duck.x, duck.y);
+      zombieNodes.forEach((node, index) => {
+        setCellPosition(node, zombies[index].x, zombies[index].y);
+      });
+    }
+
+    function canMove(position, vector) {
+      return !isWall(position.x + vector.x, position.y + vector.y);
+    }
+
+    function canReverse(vector) {
+      return direction.x + vector.x === 0 && direction.y + vector.y === 0;
+    }
+
+    function sameDirection(vector) {
+      return direction.x === vector.x && direction.y === vector.y;
+    }
+
+    function duckCell() {
+      return {
+        x: Math.round(duck.x),
+        y: Math.round(duck.y)
+      };
+    }
+
+    function zombieCell(zombie) {
+      return {
+        x: Math.round(zombie.x),
+        y: Math.round(zombie.y)
+      };
+    }
+
+    function alignToLane(vector) {
+      if (vector.x !== 0) {
+        duck.y = Math.round(duck.y);
+      } else {
+        duck.x = Math.round(duck.x);
+      }
+    }
+
+    function portalExit(nextCell, vector) {
+      if (nextCell.y !== portalRow || vector.x === 0) return null;
+      if (nextCell.x < 0) return { x: width - 1, y: portalRow };
+      if (nextCell.x >= width) return { x: 0, y: portalRow };
+      return null;
+    }
+
+    function tryBufferedTurn(vector) {
+      if (!vector) return false;
+      if (sameDirection(vector)) return false;
+
+      const center = duckCell();
+      const nearCenter = Math.abs(duck.x - center.x) <= turnAssistCells &&
+        Math.abs(duck.y - center.y) <= turnAssistCells;
+
+      if (canReverse(vector)) {
+        direction = vector;
+        alignToLane(vector);
+        return true;
+      }
+
+      if (nearCenter && canMove(center, vector)) {
+        duck.x = center.x;
+        duck.y = center.y;
+        direction = vector;
+        return true;
+      }
+
+      return false;
+    }
+
+    function collectPellet() {
+      const cell = duckCell();
+      if (isWall(cell.x, cell.y)) return;
+      if (isPortal(cell.x, cell.y)) return;
+
+      const pelletKey = key(cell.x, cell.y);
+      if (pellets.has(pelletKey)) {
+        pellets.delete(pelletKey);
+        score += 10;
+        const pelletNode = stage.querySelector(`[data-key="${pelletKey}"]`);
+        pelletNode?.remove();
+        updateHud();
+      }
+
+      if (pellets.size === 0) {
+        endGame(true);
+      }
+    }
+
+    function moveDuck(deltaSeconds) {
+      let remaining = activeDifficulty().duckSpeed * deltaSeconds;
+      let guard = 0;
+
+      tryBufferedTurn(queuedDirection);
+
+      while (remaining > 0.0001 && guard < 8 && running) {
+        guard += 1;
+        alignToLane(direction);
+
+        const axis = direction.x !== 0 ? "x" : "y";
+        const sign = direction.x || direction.y;
+        const current = duck[axis];
+        const nextCenter = sign > 0 ?
+          Math.floor(current + 0.0001) + 1 :
+          Math.ceil(current - 0.0001) - 1;
+        const origin = sign > 0 ? nextCenter - 1 : nextCenter + 1;
+        const nextCell = direction.x !== 0 ?
+          { x: nextCenter, y: Math.round(duck.y) } :
+          { x: Math.round(duck.x), y: nextCenter };
+
+        const exit = portalExit(nextCell, direction);
+        if (exit) {
+          duck.x = exit.x;
+          duck.y = exit.y;
+          remaining = 0;
+          collectPellet();
+          continue;
+        }
+
+        if (isWall(nextCell.x, nextCell.y)) {
+          duck[axis] = origin;
+          collectPellet();
+          break;
+        }
+
+        const distanceToNext = Math.abs(nextCenter - current);
+        const step = Math.min(remaining, distanceToNext);
+        duck[axis] += sign * step;
+        remaining -= step;
+
+        if (Math.abs(duck[axis] - nextCenter) <= 0.0001) {
+          duck[axis] = nextCenter;
+          collectPellet();
+          tryBufferedTurn(queuedDirection);
+        } else {
+          collectPellet();
+          break;
+        }
+      }
+    }
+
+    function neighbors(pos) {
+      return Object.values(dirs)
+        .map((dir) => ({ x: pos.x + dir.x, y: pos.y + dir.y }))
+        .filter((next) => !isZombieWall(next.x, next.y));
+    }
+
+    function nextToward(start, target) {
+      const queue = [start];
+      const seen = new Set([key(start.x, start.y)]);
+      const parent = new Map();
+
+      while (queue.length) {
+        const current = queue.shift();
+        if (current.x === target.x && current.y === target.y) {
+          let step = current;
+          while (parent.get(key(step.x, step.y)) && parent.get(key(step.x, step.y)) !== key(start.x, start.y)) {
+            const [px, py] = parent.get(key(step.x, step.y)).split(",").map(Number);
+            step = { x: px, y: py };
+          }
+          return step;
+        }
+
+        for (const next of neighbors(current)) {
+          const nextKey = key(next.x, next.y);
+          if (!seen.has(nextKey)) {
+            seen.add(nextKey);
+            parent.set(nextKey, key(current.x, current.y));
+            queue.push(next);
+          }
+        }
+      }
+
+      return start;
+    }
+
+    function duckTargetForZombies() {
+      const target = duckCell();
+      if (isPortal(target.x, target.y)) {
+        return {
+          x: target.x === 0 ? 1 : width - 2,
+          y: portalRow
+        };
+      }
+      return target;
+    }
+
+    function chooseZombieTarget(zombie, index) {
+      let target = duckTargetForZombies();
+      if (zombie.mood === "ambush") {
+        target = {
+          x: Math.max(1, Math.min(width - 2, Math.round(duck.x) + direction.x * 3)),
+          y: Math.max(1, Math.min(height - 2, Math.round(duck.y) + direction.y * 3))
+        };
+        if (isZombieWall(target.x, target.y)) {
+          target = duckTargetForZombies();
+        }
+      }
+      if (zombie.mood === "wander" && score % 80 < 30) {
+        const corners = [{ x: 1, y: 1 }, { x: 19, y: 1 }, { x: 1, y: 15 }, { x: 19, y: 15 }];
+        target = corners[(Math.floor(score / 80) + index) % corners.length];
+      }
+      return target;
+    }
+
+    function chooseZombieDirection(zombie, index) {
+      const current = zombieCell(zombie);
+      if (isZombieWall(current.x, current.y)) return null;
+
+      const next = nextToward(current, chooseZombieTarget(zombie, index));
+      const vector = {
+        x: Math.sign(next.x - current.x),
+        y: Math.sign(next.y - current.y)
+      };
+
+      if (vector.x === 0 && vector.y === 0) {
+        const fallback = neighbors(current)[0];
+        if (!fallback) return null;
+        return {
+          x: Math.sign(fallback.x - current.x),
+          y: Math.sign(fallback.y - current.y)
+        };
+      }
+
+      return vector;
+    }
+
+    function alignZombieToLane(zombie, vector) {
+      if (vector.x !== 0) {
+        zombie.y = Math.round(zombie.y);
+      } else {
+        zombie.x = Math.round(zombie.x);
+      }
+    }
+
+    function moveZombie(zombie, index, deltaSeconds) {
+      let remaining = activeDifficulty().zombieSpeed * deltaSeconds;
+      let guard = 0;
+
+      while (remaining > 0.0001 && guard < 8) {
+        guard += 1;
+        const center = zombieCell(zombie);
+        const centered = Math.abs(zombie.x - center.x) <= 0.0001 &&
+          Math.abs(zombie.y - center.y) <= 0.0001;
+
+        if (!zombie.direction || centered) {
+          zombie.x = center.x;
+          zombie.y = center.y;
+          zombie.direction = chooseZombieDirection(zombie, index);
+          if (!zombie.direction) break;
+        }
+
+        alignZombieToLane(zombie, zombie.direction);
+
+        const axis = zombie.direction.x !== 0 ? "x" : "y";
+        const sign = zombie.direction.x || zombie.direction.y;
+        const current = zombie[axis];
+        const nextCenter = sign > 0 ?
+          Math.floor(current + 0.0001) + 1 :
+          Math.ceil(current - 0.0001) - 1;
+        const origin = sign > 0 ? nextCenter - 1 : nextCenter + 1;
+        const nextCell = zombie.direction.x !== 0 ?
+          { x: nextCenter, y: Math.round(zombie.y) } :
+          { x: Math.round(zombie.x), y: nextCenter };
+
+        if (isZombieWall(nextCell.x, nextCell.y)) {
+          zombie[axis] = origin;
+          zombie.direction = null;
+          break;
+        }
+
+        const distanceToNext = Math.abs(nextCenter - current);
+        const step = Math.min(remaining, distanceToNext);
+        zombie[axis] += sign * step;
+        remaining -= step;
+
+        if (Math.abs(zombie[axis] - nextCenter) <= 0.0001) {
+          zombie[axis] = nextCenter;
+          zombie.direction = null;
+        } else {
+          break;
+        }
+      }
+
+      return zombie;
+    }
+
+    function moveZombies(deltaSeconds) {
+      zombies = zombies.map((zombie, index) => moveZombie(zombie, index, deltaSeconds));
+    }
+
+    function checkCollision() {
+      if (zombies.some((zombie) => Math.hypot(zombie.x - duck.x, zombie.y - duck.y) < 0.55)) {
+        endGame(false);
+      }
+    }
+
+    function showMessage(title, body, buttonText) {
+      message.querySelector("h2").textContent = title;
+      message.querySelector("p").textContent = body;
+      startButton.textContent = buttonText;
+      message.classList.add("show");
+    }
+
+    function hideMessage() {
+      message.classList.remove("show");
+    }
+
+    function endGame(won) {
+      if (!running) return;
+      running = false;
+      cancelAnimationFrame(loopId);
+      best = Math.max(best, score);
+      localStorage.setItem("zombieDucksBest", best);
+      updateHud();
+      if (won) {
+        showMessage("Wasteland cleared!", `You scored ${score}. The duck remains suspiciously normal.`, "Play again");
+      } else {
+        showMessage("Zombie ducked!", `Score: ${score}. Shake it off and paddle again.`, "Try again");
+      }
+    }
+
+    function loop(now) {
+      if (!running) return;
+
+      const deltaSeconds = Math.min((now - lastFrame) / 1000, 0.05);
+      lastFrame = now;
+      moveDuck(deltaSeconds);
+      checkCollision();
+      moveZombies(deltaSeconds);
+      checkCollision();
+
+      updateActors();
+      loopId = requestAnimationFrame(loop);
+    }
+
+    function startGame() {
+      resetGame(true);
+    }
+
+    function openSettings() {
+      renderDifficultyOptions();
+      settingsPage.hidden = false;
+    }
+
+    function closeSettings() {
+      settingsPage.hidden = true;
+    }
+
+    function applySettings() {
+      const selected = difficultyList.querySelector("input[name='difficulty']:checked")?.value;
+      if (selected && selected !== difficulty) {
+        difficulty = selected;
+        localStorage.setItem("zombieDucksDifficulty", difficulty);
+        resetGame(false);
+      }
+      updateHud();
+      closeSettings();
+    }
+
+    function setDirection(name) {
+      const nextDirection = dirs[name];
+      if (!nextDirection) return;
+
+      queuedDirection = nextDirection;
+
+      if (running && canReverse(nextDirection) && canMove(duckCell(), nextDirection)) {
+        direction = nextDirection;
+        alignToLane(nextDirection);
+      } else if (running) {
+        tryBufferedTurn(nextDirection);
+      }
+    }
+
+    document.addEventListener("keydown", (event) => {
+      const keyMap = {
+        ArrowUp: "up",
+        w: "up",
+        W: "up",
+        ArrowDown: "down",
+        s: "down",
+        S: "down",
+        ArrowLeft: "left",
+        a: "left",
+        A: "left",
+        ArrowRight: "right",
+        d: "right",
+        D: "right"
+      };
+
+      if (keyMap[event.key]) {
+        event.preventDefault();
+        setDirection(keyMap[event.key]);
+      }
+    });
+
+    document.querySelectorAll("[data-dir]").forEach((button) => {
+      button.addEventListener("pointerdown", () => setDirection(button.dataset.dir));
+    });
+
+    startButton.addEventListener("click", startGame);
+    restartButton.addEventListener("click", () => resetGame(true));
+    settingsButton.addEventListener("click", openSettings);
+    closeSettingsButton.addEventListener("click", closeSettings);
+    applySettingsButton.addEventListener("click", applySettings);
+
+    renderDifficultyOptions();
+    resetGame(false);
+  </script>
+</body>
+</html>
