@@ -336,10 +336,6 @@
       z-index: 1;
     }
 
-    .duck.quacking .lower-bill {
-      animation-duration: .16s;
-    }
-
     @keyframes beakChomp {
       0%,
       42% {
@@ -605,7 +601,7 @@
         <span class="pill">Mode <span id="difficultyLabel">Medium</span></span>
       </div>
       <div class="actions">
-        <button id="sound" type="button">Sound On</button>
+        <button id="sound" type="button">Music On</button>
         <button id="settings" type="button">Settings</button>
         <button id="restart" type="button">Restart</button>
       </div>
@@ -745,7 +741,6 @@
     let soundEnabled = localStorage.getItem("zombieDucksSound") !== "off";
     let audioContext = null;
     let musicTimer = 0;
-    let quackTimer = 0;
     let musicStep = 0;
     let direction = dirs.right;
     let queuedDirection = dirs.right;
@@ -796,7 +791,7 @@
     }
 
     function updateSoundButton() {
-      soundButton.textContent = soundEnabled ? "Sound On" : "Sound Off";
+      soundButton.textContent = soundEnabled ? "Music On" : "Music Off";
     }
 
     function ensureAudio() {
@@ -834,17 +829,6 @@
       oscillator.stop(start + duration + 0.03);
     }
 
-    function playDuckSound() {
-      const context = ensureAudio();
-      if (!context || !running) return;
-
-      duckNode?.querySelector(".duck")?.classList.add("quacking");
-      setTimeout(() => duckNode?.querySelector(".duck")?.classList.remove("quacking"), 360);
-      playTone(320, 0.12, "sawtooth", 0.08);
-      playTone(220, 0.16, "square", 0.07, 0.08);
-      playTone(150, 0.12, "square", 0.045, 0.19);
-    }
-
     function playMusicStep() {
       if (!running || !soundEnabled) return;
 
@@ -857,16 +841,6 @@
       musicStep += 1;
     }
 
-    function scheduleQuack() {
-      clearTimeout(quackTimer);
-      if (!running || !soundEnabled) return;
-
-      quackTimer = setTimeout(() => {
-        playDuckSound();
-        scheduleQuack();
-      }, 2800 + Math.random() * 5200);
-    }
-
     function startSoundtrack() {
       if (!ensureAudio()) return;
 
@@ -874,14 +848,11 @@
       musicStep = 0;
       playMusicStep();
       musicTimer = setInterval(playMusicStep, 310);
-      scheduleQuack();
     }
 
     function stopSoundtrack() {
       clearInterval(musicTimer);
-      clearTimeout(quackTimer);
       musicTimer = 0;
-      quackTimer = 0;
     }
 
     function key(x, y) {
