@@ -311,7 +311,47 @@
       background: inherit;
     }
 
-    .duck::after,
+    .duck::after {
+      content: "";
+      position: absolute;
+      width: 32%;
+      height: 16%;
+      right: -26%;
+      top: -12%;
+      border-radius: 0;
+      background: var(--bill);
+      box-shadow: inset 0 -5px 0 #aa3d16;
+    }
+
+    .lower-bill {
+      position: absolute;
+      width: 32%;
+      height: 16%;
+      right: -26%;
+      top: 5%;
+      background: var(--bill);
+      box-shadow: inset 0 -4px 0 #8b2f13;
+      transform-origin: left top;
+      animation: beakChomp .46s steps(2, end) infinite;
+      z-index: 1;
+    }
+
+    .duck.quacking .lower-bill {
+      animation-duration: .16s;
+    }
+
+    @keyframes beakChomp {
+      0%,
+      42% {
+        transform: translateY(0);
+      }
+
+      43%,
+      100% {
+        transform: translateY(75%);
+      }
+    }
+
     .zombie::after {
       content: "";
       position: absolute;
@@ -565,6 +605,7 @@
         <span class="pill">Mode <span id="difficultyLabel">Medium</span></span>
       </div>
       <div class="actions">
+        <button id="sound" type="button">Sound On</button>
         <button id="settings" type="button">Settings</button>
         <button id="restart" type="button">Restart</button>
       </div>
@@ -682,6 +723,7 @@
     const leftEl = document.querySelector("#left");
     const bestEl = document.querySelector("#best");
     const difficultyLabel = document.querySelector("#difficultyLabel");
+    const soundButton = document.querySelector("#sound");
     const restartButton = document.querySelector("#restart");
     const settingsButton = document.querySelector("#settings");
     const startButton = document.querySelector("#start");
@@ -700,6 +742,11 @@
     let running = false;
     let loopId = 0;
     let lastFrame = 0;
+    let soundEnabled = localStorage.getItem("zombieDucksSound") !== "off";
+    let audioContext = null;
+    let musicTimer = 0;
+    let quackTimer = 0;
+    let musicStep = 0;
     let direction = dirs.right;
     let queuedDirection = dirs.right;
     let duck = { x: 1, y: 1 };
@@ -709,6 +756,7 @@
 
     bestEl.textContent = best;
     difficultyLabel.textContent = difficulty;
+    updateSoundButton();
 
     function activeDifficulty() {
       return difficultySettings[difficulty];
@@ -747,6 +795,95 @@
       });
     }
 
+    function updateSoundButton() {
+      soundButton.textContent = soundEnabled ? "Sound On" : "Sound Off";
+    }
+
+    function ensureAudio() {
+      if (!soundEnabled) return null;
+      if (!audioContext) {
+        const AudioEngine = window.AudioContext || window.webkitAudioContext;
+        if (!AudioEngine) {
+          soundEnabled = false;
+          updateSoundButton();
+          return null;
+        }
+        audioContext = new AudioEngine();
+      }
+      if (audioContext.state === "suspended") {
+        audioContext.resume();
+      }
+      return audioContext;
+    }
+
+    function playTone(frequency, duration, type = "square", volume = 0.05, delay = 0) {
+      const context = ensureAudio();
+      if (!context) return;
+
+      const start = context.currentTime + delay;
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+      oscillator.type = type;
+      oscillator.frequency.setValueAtTime(frequency, start);
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.exponentialRampToValueAtTime(volume, start + 0.015);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+      oscillator.connect(gain);
+      gain.connect(context.destination);
+      oscillator.start(start);
+      oscillator.stop(start + duration + 0.03);
+    }
+
+    function playDuckSound() {
+      const context = ensureAudio();
+      if (!context || !running) return;
+
+      duckNode?.querySelector(".duck")?.classList.add("quacking");
+      setTimeout(() => duckNode?.querySelector(".duck")?.classList.remove("quacking"), 360);
+      playTone(320, 0.12, "sawtooth", 0.08);
+      playTone(220, 0.16, "square", 0.07, 0.08);
+      playTone(150, 0.12, "square", 0.045, 0.19);
+    }
+
+    function playMusicStep() {
+      if (!running || !soundEnabled) return;
+
+      const melody = [196, 196, 233, 196, 174, 147, 174, 196];
+      const bass = [73, 73, 87, 73, 65, 55, 65, 73];
+      playTone(melody[musicStep % melody.length], 0.12, "square", 0.025);
+      if (musicStep % 2 === 0) {
+        playTone(bass[musicStep % bass.length], 0.18, "triangle", 0.035);
+      }
+      musicStep += 1;
+    }
+
+    function scheduleQuack() {
+      clearTimeout(quackTimer);
+      if (!running || !soundEnabled) return;
+
+      quackTimer = setTimeout(() => {
+        playDuckSound();
+        scheduleQuack();
+      }, 2800 + Math.random() * 5200);
+    }
+
+    function startSoundtrack() {
+      if (!ensureAudio()) return;
+
+      stopSoundtrack();
+      musicStep = 0;
+      playMusicStep();
+      musicTimer = setInterval(playMusicStep, 310);
+      scheduleQuack();
+    }
+
+    function stopSoundtrack() {
+      clearInterval(musicTimer);
+      clearTimeout(quackTimer);
+      musicTimer = 0;
+      quackTimer = 0;
+    }
+
     function key(x, y) {
       return `${x},${y}`;
     }
@@ -775,6 +912,9 @@
       const body = document.createElement("div");
       body.className = className;
       body.innerHTML = '<span class="eye"></span><span class="wing"></span>';
+      if (className === "duck") {
+        body.innerHTML += '<span class="lower-bill"></span>';
+      }
       if (className === "zombie") {
         body.innerHTML += '<span class="stitch"></span>';
         const tag = document.createElement("span");
@@ -844,8 +984,10 @@
 
       if (autoStart) {
         hideMessage();
+        startSoundtrack();
         loopId = requestAnimationFrame(loop);
       } else {
+        stopSoundtrack();
         showMessage("Zombie Ducks", "Grab the glow scraps. Use side gates to ditch the undead ducks.", "Start");
       }
     }
@@ -1171,6 +1313,7 @@
       if (!running) return;
       running = false;
       cancelAnimationFrame(loopId);
+      stopSoundtrack();
       best = Math.max(best, score);
       localStorage.setItem("zombieDucksBest", best);
       updateHud();
@@ -1197,6 +1340,18 @@
 
     function startGame() {
       resetGame(true);
+    }
+
+    function toggleSound() {
+      soundEnabled = !soundEnabled;
+      localStorage.setItem("zombieDucksSound", soundEnabled ? "on" : "off");
+      updateSoundButton();
+
+      if (soundEnabled && running) {
+        startSoundtrack();
+      } else {
+        stopSoundtrack();
+      }
     }
 
     function openSettings() {
@@ -1260,6 +1415,7 @@
     });
 
     startButton.addEventListener("click", startGame);
+    soundButton.addEventListener("click", toggleSound);
     restartButton.addEventListener("click", () => resetGame(true));
     settingsButton.addEventListener("click", openSettings);
     closeSettingsButton.addEventListener("click", closeSettings);
