@@ -1298,7 +1298,7 @@
       const pelletKey = key(cell.x, cell.y);
       if (powerPoints.has(pelletKey)) {
         powerPoints.delete(pelletKey);
-        swordCharges = Math.max(swordCharges, 1);
+        swordCharges += 1;
         score += 25;
         const powerNode = stage.querySelector(`.power-point[data-key="${pelletKey}"]`);
         powerNode?.remove();

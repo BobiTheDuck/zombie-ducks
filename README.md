@@ -215,7 +215,7 @@ For example:
 
 - `score` goes up when the duck eats a snack.
 - `powerPoints` stores the special sword pickups.
-- `swordCharges` says whether the duck has a sword attack ready.
+- `swordCharges` says how many sword attacks the duck has ready.
 - `duck` stores the duck's current position.
 - `zombies` stores all the zombie ducks.
 - `running` says whether the game is currently playing.
@@ -635,13 +635,13 @@ let powerPoints = new Set();
 let swordCharges = 0;
 ```
 
-When the duck collects one, the game removes that power point and gives the duck
-one sword charge.
+When the duck collects one, the game removes that power point and adds one sword
+charge.
 
 ```js
 if (powerPoints.has(pelletKey)) {
   powerPoints.delete(pelletKey);
-  swordCharges = Math.max(swordCharges, 1);
+  swordCharges += 1;
   score += 25;
   const powerNode = stage.querySelector(`.power-point[data-key="${pelletKey}"]`);
   powerNode?.remove();
