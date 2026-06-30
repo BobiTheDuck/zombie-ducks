@@ -193,6 +193,49 @@
         0 0 10px rgba(168, 255, 47, .9);
     }
 
+    .power-point::before,
+    .power-point::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      border-radius: 0;
+      transform: translate(-50%, -50%);
+    }
+
+    .power-point::before {
+      width: 48%;
+      height: 48%;
+      background: #f7ff82;
+      box-shadow:
+        0 0 0 3px var(--blood),
+        0 0 14px rgba(247, 255, 130, .95),
+        0 0 22px rgba(184, 36, 45, .75);
+      animation: powerPulse .75s steps(2, end) infinite;
+    }
+
+    .power-point::after {
+      width: 12%;
+      height: 58%;
+      background: #fff7d1;
+      box-shadow:
+        -8px 12px 0 #ff6f38,
+        8px 12px 0 #ff6f38,
+        0 0 8px #fff7d1;
+    }
+
+    @keyframes powerPulse {
+      0%,
+      49% {
+        filter: brightness(1);
+      }
+
+      50%,
+      100% {
+        filter: brightness(1.8);
+      }
+    }
+
     .lily::before,
     .lily::after {
       content: "";
@@ -299,6 +342,16 @@
         inset 8px 0 0 #ffe071;
     }
 
+    .actor.armed .duck {
+      transform: scale(1.12);
+      filter: drop-shadow(0 0 8px #fff7d1);
+      box-shadow:
+        inset 0 -10px 0 #c9891c,
+        inset 8px 0 0 #ffe071,
+        0 0 0 4px var(--blood),
+        0 0 16px #fff7d1;
+    }
+
     .duck::before,
     .zombie::before {
       content: "";
@@ -334,6 +387,49 @@
       transform-origin: left top;
       animation: beakChomp .46s steps(2, end) infinite;
       z-index: 1;
+    }
+
+    .sword {
+      display: none;
+      position: absolute;
+      right: -48%;
+      top: -38%;
+      width: 12%;
+      height: 76%;
+      background: #fff7d1;
+      box-shadow:
+        0 0 0 2px #8fd4ff,
+        0 0 10px #fff7d1;
+      transform: rotate(42deg);
+      z-index: 4;
+    }
+
+    .sword::before {
+      content: "";
+      position: absolute;
+      left: -160%;
+      bottom: 15%;
+      width: 420%;
+      height: 16%;
+      background: #ff6f38;
+      box-shadow: 0 0 0 2px #33080d;
+    }
+
+    .actor.armed .sword {
+      display: block;
+      animation: swordFlash .36s steps(2, end) infinite;
+    }
+
+    @keyframes swordFlash {
+      0%,
+      49% {
+        opacity: 1;
+      }
+
+      50%,
+      100% {
+        opacity: .55;
+      }
     }
 
     @keyframes beakChomp {
@@ -598,6 +694,7 @@
         <span class="pill">Score <span id="score">0</span></span>
         <span class="pill">Snacks <span id="left">0</span></span>
         <span class="pill">Best <span id="best">0</span></span>
+        <span class="pill">Sword <span id="sword">0</span></span>
         <span class="pill">Maze <span id="mazeLabel">1</span></span>
         <span class="pill">Mode <span id="difficultyLabel">Medium</span></span>
       </div>
@@ -648,6 +745,7 @@
         note: "The original ruined pond.",
         portalRow: 8,
         duckStart: { x: 1, y: 1 },
+        powerPoints: [],
         zombieSpawns: [
           { x: 19, y: 15, mood: "direct" },
           { x: 19, y: 1, mood: "ambush" },
@@ -681,6 +779,14 @@
         note: "Bigger, twistier, and harder to clear.",
         portalRow: 9,
         duckStart: { x: 1, y: 1 },
+        powerPoints: [
+          { x: 11, y: 1 },
+          { x: 1, y: 5 },
+          { x: 23, y: 5 },
+          { x: 1, y: 13 },
+          { x: 23, y: 13 },
+          { x: 11, y: 17 }
+        ],
         zombieSpawns: [
           { x: 23, y: 17, mood: "direct" },
           { x: 23, y: 1, mood: "ambush" },
@@ -768,6 +874,7 @@
     const scoreEl = document.querySelector("#score");
     const leftEl = document.querySelector("#left");
     const bestEl = document.querySelector("#best");
+    const swordEl = document.querySelector("#sword");
     const mazeLabel = document.querySelector("#mazeLabel");
     const difficultyLabel = document.querySelector("#difficultyLabel");
     const soundButton = document.querySelector("#sound");
@@ -782,7 +889,9 @@
     const applySettingsButton = document.querySelector("#applySettings");
 
     let pellets = new Set();
+    let powerPoints = new Set();
     let score = 0;
+    let swordCharges = 0;
     let best = Number(localStorage.getItem("zombieDucksBest") || localStorage.getItem("duckDashBest") || 0);
     let difficulty = difficultyNames.includes(localStorage.getItem("zombieDucksDifficulty")) ?
       localStorage.getItem("zombieDucksDifficulty") :
@@ -957,6 +1066,10 @@
       node.style.setProperty("--y", y);
     }
 
+    function isPowerPoint(x, y) {
+      return currentMaze.powerPoints?.some((point) => point.x === x && point.y === y);
+    }
+
     function createDuck(className, name = "") {
       const wrap = document.createElement("div");
       wrap.className = "actor";
@@ -964,7 +1077,7 @@
       body.className = className;
       body.innerHTML = '<span class="eye"></span><span class="wing"></span>';
       if (className === "duck") {
-        body.innerHTML += '<span class="lower-bill"></span>';
+        body.innerHTML += '<span class="lower-bill"></span><span class="sword"></span>';
       }
       if (className === "zombie") {
         body.innerHTML += '<span class="stitch"></span>';
@@ -980,6 +1093,7 @@
     function drawBoard() {
       stage.querySelectorAll(".cell, .actor").forEach((node) => node.remove());
       pellets = new Set();
+      powerPoints = new Set();
 
       for (let y = 0; y < height; y += 1) {
         for (let x = 0; x < width; x += 1) {
@@ -993,6 +1107,13 @@
             portal.className = "cell portal";
             setCellPosition(portal, x, y);
             stage.append(portal);
+          } else if (isPowerPoint(x, y)) {
+            powerPoints.add(key(x, y));
+            const powerPoint = document.createElement("div");
+            powerPoint.className = "cell power-point";
+            powerPoint.dataset.key = key(x, y);
+            setCellPosition(powerPoint, x, y);
+            stage.append(powerPoint);
           } else if (!isSpawn(x, y)) {
             pellets.add(key(x, y));
             const pellet = document.createElement("div");
@@ -1024,6 +1145,7 @@
     function resetGame(autoStart = false) {
       cancelAnimationFrame(loopId);
       score = 0;
+      swordCharges = 0;
       duck = { ...currentMaze.duckStart };
       direction = dirs.right;
       queuedDirection = dirs.right;
@@ -1040,7 +1162,13 @@
         loopId = requestAnimationFrame(loop);
       } else {
         stopSoundtrack();
-        showMessage(currentMaze.name, "Grab the glow scraps. Use side gates to ditch the undead ducks.", "Start");
+        showMessage(
+          currentMaze.name,
+          currentMaze.powerPoints?.length ?
+            "Grab the glow scraps. Sword points let you defeat one zombie duck." :
+            "Grab the glow scraps. Use side gates to ditch the undead ducks.",
+          "Start"
+        );
       }
     }
 
@@ -1048,12 +1176,14 @@
       scoreEl.textContent = score;
       leftEl.textContent = pellets.size;
       bestEl.textContent = best;
+      swordEl.textContent = swordCharges;
       mazeLabel.textContent = mazeIndex + 1;
       difficultyLabel.textContent = difficulty;
     }
 
     function updateActors() {
       setCellPosition(duckNode, duck.x, duck.y);
+      duckNode.classList.toggle("armed", swordCharges > 0);
       zombieNodes.forEach((node, index) => {
         setCellPosition(node, zombies[index].x, zombies[index].y);
       });
@@ -1130,6 +1260,15 @@
       if (isPortal(cell.x, cell.y)) return;
 
       const pelletKey = key(cell.x, cell.y);
+      if (powerPoints.has(pelletKey)) {
+        powerPoints.delete(pelletKey);
+        swordCharges = Math.max(swordCharges, 1);
+        score += 25;
+        const powerNode = stage.querySelector(`.power-point[data-key="${pelletKey}"]`);
+        powerNode?.remove();
+        updateHud();
+      }
+
       if (pellets.has(pelletKey)) {
         pellets.delete(pelletKey);
         score += 10;
@@ -1351,7 +1490,18 @@
     }
 
     function checkCollision() {
-      if (zombies.some((zombie) => Math.hypot(zombie.x - duck.x, zombie.y - duck.y) < 0.55)) {
+      const zombieIndex = zombies.findIndex((zombie) => Math.hypot(zombie.x - duck.x, zombie.y - duck.y) < 0.55);
+      if (zombieIndex === -1) return;
+
+      if (swordCharges > 0) {
+        swordCharges -= 1;
+        score += 100;
+        zombies.splice(zombieIndex, 1);
+        zombieNodes[zombieIndex]?.remove();
+        zombieNodes.splice(zombieIndex, 1);
+        updateHud();
+        updateActors();
+      } else {
         endGame(false);
       }
     }

@@ -19,6 +19,9 @@ https://bobitheduck.github.io/zombie-ducks/
 - Open Settings to choose a maze and a difficulty.
 - Maze 1 is the original Wrecked Pond.
 - Maze 2 is Toxic Tunnels, which is bigger and harder.
+- In Maze 2, collect sword power points to get one sword attack.
+- If the duck has a sword, touching a zombie duck defeats that zombie instead
+  of ending the game.
 - Difficulty choices:
   - Really Easy
   - Easy
@@ -170,7 +173,9 @@ Examples:
 
 ```js
 let pellets = new Set();
+let powerPoints = new Set();
 let score = 0;
+let swordCharges = 0;
 let running = false;
 let direction = dirs.right;
 let queuedDirection = dirs.right;
@@ -183,6 +188,8 @@ These values change while you play.
 For example:
 
 - `score` goes up when the duck eats a snack.
+- `powerPoints` stores the special sword pickups.
+- `swordCharges` says whether the duck has a sword attack ready.
 - `duck` stores the duck's current position.
 - `zombies` stores all the zombie ducks.
 - `running` says whether the game is currently playing.
@@ -593,20 +600,58 @@ When the duck reaches a snack square:
 3. The snack disappears from the screen.
 4. The score display updates.
 
+## Sword Power Points
+
+Maze 2 has special power points. They are stored separately from normal snacks.
+
+```js
+let powerPoints = new Set();
+let swordCharges = 0;
+```
+
+When the duck collects one, the game removes that power point and gives the duck
+one sword charge.
+
+```js
+if (powerPoints.has(pelletKey)) {
+  powerPoints.delete(pelletKey);
+  swordCharges = Math.max(swordCharges, 1);
+  score += 25;
+  const powerNode = stage.querySelector(`.power-point[data-key="${pelletKey}"]`);
+  powerNode?.remove();
+  updateHud();
+}
+```
+
+The sword charge works like a shield and an attack at the same time. The next
+zombie duck the player touches gets defeated.
+
 ## Collision Detection
 
 Collision detection means checking if two things touched.
 
 ```js
 function checkCollision() {
-  if (zombies.some((zombie) => Math.hypot(zombie.x - duck.x, zombie.y - duck.y) < 0.55)) {
+  const zombieIndex = zombies.findIndex((zombie) => Math.hypot(zombie.x - duck.x, zombie.y - duck.y) < 0.55);
+  if (zombieIndex === -1) return;
+
+  if (swordCharges > 0) {
+    swordCharges -= 1;
+    score += 100;
+    zombies.splice(zombieIndex, 1);
+    zombieNodes[zombieIndex]?.remove();
+    zombieNodes.splice(zombieIndex, 1);
+    updateHud();
+    updateActors();
+  } else {
     endGame(false);
   }
 }
 ```
 
 `Math.hypot()` measures the distance between the duck and a zombie duck. If that
-distance is small enough, the zombie caught the player.
+distance is small enough, the game checks whether the duck has a sword. With a
+sword, the zombie is removed. Without a sword, the zombie catches the player.
 
 ## The Game Loop
 
@@ -732,10 +777,10 @@ Here is a quick guide to the main functions:
 | `createDuck()` | Builds a duck or zombie duck element. |
 | `drawBoard()` | Draws walls, portals, snacks, the duck, and zombies. |
 | `resetGame()` | Resets score, positions, zombies, and messages. |
-| `updateHud()` | Updates score, snacks left, best score, and difficulty. |
+| `updateHud()` | Updates score, snacks left, sword count, best score, and difficulty. |
 | `moveDuck()` | Moves the player duck smoothly. |
 | `tryBufferedTurn()` | Lets the player press a turn slightly early. |
-| `collectPellet()` | Handles snack collection and scoring. |
+| `collectPellet()` | Handles snack collection, sword pickups, and scoring. |
 | `neighbors()` | Finds open squares around a zombie. |
 | `nextToward()` | Uses BFS pathfinding to find a route through the maze. |
 | `chooseZombieTarget()` | Decides what each zombie is chasing. |
