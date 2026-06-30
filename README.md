@@ -650,7 +650,29 @@ if (powerPoints.has(pelletKey)) {
 ```
 
 The sword charge works like a shield and an attack at the same time. The next
-zombie duck the player touches gets defeated.
+zombie duck the player touches gets defeated for a few seconds.
+
+Defeated zombie ducks are not deleted from the game forever. They are marked as
+`defeated`, hidden, and given a respawn time.
+
+```js
+const zombieRespawnMs = 5000;
+```
+
+When the timer finishes, the zombie duck comes back at its home square.
+
+```js
+if (zombie.defeated && now >= zombie.respawnAt) {
+  return {
+    ...zombie,
+    x: zombie.homeX,
+    y: zombie.homeY,
+    direction: null,
+    defeated: false,
+    respawnAt: 0
+  };
+}
+```
 
 ## Collision Detection
 
@@ -658,15 +680,18 @@ Collision detection means checking if two things touched.
 
 ```js
 function checkCollision() {
-  const zombieIndex = zombies.findIndex((zombie) => Math.hypot(zombie.x - duck.x, zombie.y - duck.y) < 0.55);
+  const zombieIndex = zombies.findIndex((zombie) => !zombie.defeated && Math.hypot(zombie.x - duck.x, zombie.y - duck.y) < 0.55);
   if (zombieIndex === -1) return;
 
   if (swordCharges > 0) {
     swordCharges -= 1;
     score += 100;
-    zombies.splice(zombieIndex, 1);
-    zombieNodes[zombieIndex]?.remove();
-    zombieNodes.splice(zombieIndex, 1);
+    zombies[zombieIndex] = {
+      ...zombies[zombieIndex],
+      defeated: true,
+      direction: null,
+      respawnAt: performance.now() + zombieRespawnMs
+    };
     updateHud();
     updateActors();
   } else {
@@ -677,7 +702,8 @@ function checkCollision() {
 
 `Math.hypot()` measures the distance between the duck and a zombie duck. If that
 distance is small enough, the game checks whether the duck has a sword. With a
-sword, the zombie is removed. Without a sword, the zombie catches the player.
+sword, the zombie is defeated temporarily. Without a sword, the zombie catches
+the player.
 
 ## The Game Loop
 
@@ -813,7 +839,7 @@ Here is a quick guide to the main functions:
 | `neighbors()` | Finds open squares around a zombie. |
 | `nextToward()` | Uses BFS pathfinding to find a route through the maze. |
 | `chooseZombieTarget()` | Decides what each zombie is chasing. |
-| `moveZombie()` | Moves one zombie smoothly. |
+| `moveZombie()` | Moves one zombie smoothly and respawns defeated zombies. |
 | `checkCollision()` | Checks if a zombie caught the duck. |
 | `loop()` | Runs the game every animation frame. |
 | `setDirection()` | Handles keyboard and touch movement input. |

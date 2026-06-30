@@ -308,6 +308,11 @@
       place-items: center;
     }
 
+    .actor.defeated {
+      opacity: 0;
+      pointer-events: none;
+    }
+
     .name-tag {
       position: absolute;
       left: 50%;
@@ -837,6 +842,7 @@
     let height = map.length;
     const turnAssistCells = 0.48;
     let portalRow = currentMaze.portalRow;
+    const zombieRespawnMs = 5000;
     const difficultySettings = {
       "Really Easy": {
         duckSpeed: 5.05,
@@ -967,8 +973,12 @@
 
       return zombieSpawns.slice(0, activeDifficulty().zombieCount).map((spawn, index) => ({
         ...spawn,
+        homeX: spawn.x,
+        homeY: spawn.y,
         name: names[index] || `Z-${index + 1}`,
-        direction: null
+        direction: null,
+        defeated: false,
+        respawnAt: 0
       }));
     }
 
@@ -1211,6 +1221,7 @@
       duckNode.classList.toggle("armed", swordCharges > 0);
       zombieNodes.forEach((node, index) => {
         setCellPosition(node, zombies[index].x, zombies[index].y);
+        node.classList.toggle("defeated", zombies[index].defeated);
       });
     }
 
@@ -1458,7 +1469,21 @@
       }
     }
 
-    function moveZombie(zombie, index, deltaSeconds) {
+    function moveZombie(zombie, index, deltaSeconds, now) {
+      if (zombie.defeated) {
+        if (now >= zombie.respawnAt) {
+          return {
+            ...zombie,
+            x: zombie.homeX,
+            y: zombie.homeY,
+            direction: null,
+            defeated: false,
+            respawnAt: 0
+          };
+        }
+        return zombie;
+      }
+
       let remaining = activeDifficulty().zombieSpeed * deltaSeconds;
       let guard = 0;
 
@@ -1510,20 +1535,23 @@
       return zombie;
     }
 
-    function moveZombies(deltaSeconds) {
-      zombies = zombies.map((zombie, index) => moveZombie(zombie, index, deltaSeconds));
+    function moveZombies(deltaSeconds, now) {
+      zombies = zombies.map((zombie, index) => moveZombie(zombie, index, deltaSeconds, now));
     }
 
     function checkCollision() {
-      const zombieIndex = zombies.findIndex((zombie) => Math.hypot(zombie.x - duck.x, zombie.y - duck.y) < 0.55);
+      const zombieIndex = zombies.findIndex((zombie) => !zombie.defeated && Math.hypot(zombie.x - duck.x, zombie.y - duck.y) < 0.55);
       if (zombieIndex === -1) return;
 
       if (swordCharges > 0) {
         swordCharges -= 1;
         score += 100;
-        zombies.splice(zombieIndex, 1);
-        zombieNodes[zombieIndex]?.remove();
-        zombieNodes.splice(zombieIndex, 1);
+        zombies[zombieIndex] = {
+          ...zombies[zombieIndex],
+          defeated: true,
+          direction: null,
+          respawnAt: performance.now() + zombieRespawnMs
+        };
         updateHud();
         updateActors();
       } else {
@@ -1570,7 +1598,7 @@
       lastFrame = now;
       moveDuck(deltaSeconds);
       checkCollision();
-      moveZombies(deltaSeconds);
+      moveZombies(deltaSeconds, now);
       checkCollision();
 
       updateActors();
