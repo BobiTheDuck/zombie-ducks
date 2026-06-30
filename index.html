@@ -620,6 +620,13 @@
       height: 18px;
     }
 
+    .difficulty-option.locked {
+      opacity: .55;
+      color: #9aa8a0;
+      border-color: #263036;
+      cursor: not-allowed;
+    }
+
     .difficulty-option:has(input:checked) {
       border-color: var(--toxic);
       color: var(--toxic);
@@ -695,7 +702,7 @@
         <span class="pill">Snacks <span id="left">0</span></span>
         <span class="pill">Best <span id="best">0</span></span>
         <span class="pill">Sword <span id="sword">0</span></span>
-        <span class="pill">Maze <span id="mazeLabel">1</span></span>
+        <span class="pill">Level <span id="mazeLabel">1</span></span>
         <span class="pill">Mode <span id="difficultyLabel">Medium</span></span>
       </div>
       <div class="actions">
@@ -718,7 +725,7 @@
     <section class="settings-page" id="settingsPage" aria-label="Settings" hidden>
       <div class="settings-card">
         <h2>Settings</h2>
-        <p>Choose a maze, then set how many named zombie ducks chase you and how fast they glide.</p>
+        <p>Clear Level 1 to unlock Level 2. Difficulty changes how many named zombie ducks chase you and how fast they glide.</p>
         <div class="difficulty-list" id="mazeList"></div>
         <div class="difficulty-list" id="difficultyList"></div>
         <div class="settings-actions">
@@ -819,8 +826,11 @@
       }
     ];
 
+    let maxUnlockedMaze = Number(localStorage.getItem("zombieDucksUnlockedMaze") || 0);
+    if (!mazes[maxUnlockedMaze]) maxUnlockedMaze = 0;
     let mazeIndex = Number(localStorage.getItem("zombieDucksMaze") || 0);
     if (!mazes[mazeIndex]) mazeIndex = 0;
+    if (mazeIndex > maxUnlockedMaze) mazeIndex = 0;
     let currentMaze = mazes[mazeIndex];
     let map = currentMaze.map;
     let width = map[0].length;
@@ -909,6 +919,7 @@
     let zombies = [];
     let duckNode;
     let zombieNodes = [];
+    let queuedMazeAfterWin = null;
 
     bestEl.textContent = best;
     mazeLabel.textContent = mazeIndex + 1;
@@ -917,6 +928,7 @@
 
     function loadMaze(index) {
       mazeIndex = mazes[index] ? index : 0;
+      if (mazeIndex > maxUnlockedMaze) mazeIndex = 0;
       currentMaze = mazes[mazeIndex];
       map = currentMaze.map;
       width = map[0].length;
@@ -925,6 +937,17 @@
       zombieSpawns = currentMaze.zombieSpawns;
       stage.style.setProperty("--cols", width);
       stage.style.setProperty("--rows", height);
+    }
+
+    function isMazeUnlocked(index) {
+      return index <= maxUnlockedMaze;
+    }
+
+    function unlockMaze(index) {
+      if (!mazes[index] || index <= maxUnlockedMaze) return false;
+      maxUnlockedMaze = index;
+      localStorage.setItem("zombieDucksUnlockedMaze", maxUnlockedMaze);
+      return true;
     }
 
     function activeDifficulty() {
@@ -953,12 +976,14 @@
       mazeList.innerHTML = "";
 
       mazes.forEach((maze, index) => {
+        const unlocked = isMazeUnlocked(index);
         const label = document.createElement("label");
-        label.className = "difficulty-option";
+        label.className = `difficulty-option${unlocked ? "" : " locked"}`;
         label.innerHTML = `
           <input type="radio" name="maze" value="${index}">
-          <span>Maze ${index + 1}: ${maze.name}<span class="difficulty-note">${maze.note}</span></span>
+          <span>Level ${index + 1}: ${maze.name}<span class="difficulty-note">${unlocked ? maze.note : "Locked. Clear Level 1 first."}</span></span>
         `;
+        label.querySelector("input").disabled = !unlocked;
         label.querySelector("input").checked = index === mazeIndex;
         mazeList.append(label);
       });
@@ -1526,7 +1551,13 @@
       localStorage.setItem("zombieDucksBest", best);
       updateHud();
       if (won) {
-        showMessage("Wasteland cleared!", `You scored ${score}. The duck remains suspiciously normal.`, "Play again");
+        const nextMaze = mazeIndex + 1;
+        if (unlockMaze(nextMaze)) {
+          queuedMazeAfterWin = nextMaze;
+          showMessage("Level 2 unlocked!", `You scored ${score}. Toxic Tunnels is open now.`, "Play Level 2");
+        } else {
+          showMessage("Wasteland cleared!", `You scored ${score}. The duck remains suspiciously normal.`, "Play again");
+        }
       } else {
         showMessage("Zombie ducked!", `Score: ${score}. Shake it off and paddle again.`, "Try again");
       }
@@ -1547,6 +1578,11 @@
     }
 
     function startGame() {
+      if (queuedMazeAfterWin !== null) {
+        loadMaze(queuedMazeAfterWin);
+        localStorage.setItem("zombieDucksMaze", mazeIndex);
+        queuedMazeAfterWin = null;
+      }
       resetGame(true);
     }
 
@@ -1575,10 +1611,11 @@
     function applySettings() {
       const selectedMaze = Number(mazeList.querySelector("input[name='maze']:checked")?.value);
       const selected = difficultyList.querySelector("input[name='difficulty']:checked")?.value;
-      const mazeChanged = mazes[selectedMaze] && selectedMaze !== mazeIndex;
+      const mazeChanged = mazes[selectedMaze] && isMazeUnlocked(selectedMaze) && selectedMaze !== mazeIndex;
       const difficultyChanged = selected && selected !== difficulty;
 
       if (mazeChanged) {
+        queuedMazeAfterWin = null;
         loadMaze(selectedMaze);
         localStorage.setItem("zombieDucksMaze", mazeIndex);
       }
@@ -1637,7 +1674,10 @@
 
     startButton.addEventListener("click", startGame);
     soundButton.addEventListener("click", toggleSound);
-    restartButton.addEventListener("click", () => resetGame(true));
+    restartButton.addEventListener("click", () => {
+      queuedMazeAfterWin = null;
+      resetGame(true);
+    });
     settingsButton.addEventListener("click", openSettings);
     closeSettingsButton.addEventListener("click", closeSettings);
     applySettingsButton.addEventListener("click", applySettings);

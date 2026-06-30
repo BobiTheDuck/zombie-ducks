@@ -16,10 +16,11 @@ https://bobitheduck.github.io/zombie-ducks/
 - Avoid the zombie ducks.
 - Use the side portals to escape. Your duck can teleport through them, but the
   zombie ducks cannot.
-- Open Settings to choose a maze and a difficulty.
-- Maze 1 is the original Wrecked Pond.
-- Maze 2 is Toxic Tunnels, which is bigger and harder.
-- In Maze 2, collect sword power points to get one sword attack.
+- Open Settings to choose an unlocked level and a difficulty.
+- Level 1 is the original Wrecked Pond.
+- Level 2 is Toxic Tunnels, which is bigger and harder.
+- You must clear Level 1 before Level 2 unlocks.
+- In Level 2, collect sword power points to get one sword attack.
 - If the duck has a sword, touching a zombie duck defeats that zombie instead
   of ending the game.
 - Difficulty choices:
@@ -65,7 +66,7 @@ Zombie Ducks has four big layers:
 | --- | --- |
 | HTML | Creates the buttons, score display, board, message box, and settings page. |
 | CSS | Makes the game look 8-bit, spooky, toxic, and apocalyptic. |
-| JavaScript state | Stores things that change, like score, selected maze, duck position, zombie positions, and difficulty. |
+| JavaScript state | Stores things that change, like score, unlocked levels, selected level, duck position, zombie positions, and difficulty. |
 | JavaScript functions | Run the game: draw the board, move characters, check collisions, and restart. |
 
 ## The Maze
@@ -140,13 +141,38 @@ let height = map.length;
 That means if the map changes size, the game can still understand its width and
 height.
 
-## Choosing A Maze
+## Levels And Unlocking
 
-The current maze number is saved in `localStorage`, so the browser can remember
-which maze was selected.
+The current level number is saved in `localStorage`, so the browser can remember
+which level was selected.
 
 ```js
 let mazeIndex = Number(localStorage.getItem("zombieDucksMaze") || 0);
+```
+
+The game also remembers the highest unlocked level.
+
+```js
+let maxUnlockedMaze = Number(localStorage.getItem("zombieDucksUnlockedMaze") || 0);
+```
+
+This helper checks whether a level can be played.
+
+```js
+function isMazeUnlocked(index) {
+  return index <= maxUnlockedMaze;
+}
+```
+
+When Level 1 is cleared, the next level unlocks.
+
+```js
+function unlockMaze(index) {
+  if (!mazes[index] || index <= maxUnlockedMaze) return false;
+  maxUnlockedMaze = index;
+  localStorage.setItem("zombieDucksUnlockedMaze", maxUnlockedMaze);
+  return true;
+}
 ```
 
 The `loadMaze()` function updates the important maze variables.
@@ -163,7 +189,7 @@ function loadMaze(index) {
 }
 ```
 
-This is why the bigger second maze can work without rewriting the whole game.
+This is why the bigger second level can work without rewriting the whole game.
 
 ## Game State
 
@@ -602,7 +628,7 @@ When the duck reaches a snack square:
 
 ## Sword Power Points
 
-Maze 2 has special power points. They are stored separately from normal snacks.
+Level 2 has special power points. They are stored separately from normal snacks.
 
 ```js
 let powerPoints = new Set();
@@ -729,7 +755,8 @@ let best = Number(localStorage.getItem("zombieDucksBest") || 0);
 ```
 
 `localStorage` is like a tiny notebook for a website. It can remember your best
-score, difficulty, and music setting even after you refresh the page.
+score, unlocked levels, selected level, difficulty, and music setting even after
+you refresh the page.
 
 ## Music
 
@@ -765,7 +792,9 @@ Here is a quick guide to the main functions:
 | `activeDifficulty()` | Gets the current difficulty settings. |
 | `createZombies()` | Creates named zombie ducks for the chosen difficulty. |
 | `loadMaze()` | Loads the selected maze and updates the board size. |
-| `renderMazeOptions()` | Builds the settings page maze buttons. |
+| `isMazeUnlocked()` | Checks whether a level is unlocked. |
+| `unlockMaze()` | Unlocks the next level after a win. |
+| `renderMazeOptions()` | Builds the settings page level buttons. |
 | `renderDifficultyOptions()` | Builds the settings page difficulty buttons. |
 | `ensureAudio()` | Starts the browser audio system if music is on. |
 | `playTone()` | Plays one retro music note. |
