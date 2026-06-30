@@ -16,7 +16,10 @@ https://bobitheduck.github.io/zombie-ducks/
 - Avoid the zombie ducks.
 - Use the side portals to escape. Your duck can teleport through them, but the
   zombie ducks cannot.
-- Open Settings to choose a difficulty:
+- Open Settings to choose a maze and a difficulty.
+- Maze 1 is the original Wrecked Pond.
+- Maze 2 is Toxic Tunnels, which is bigger and harder.
+- Difficulty choices:
   - Really Easy
   - Easy
   - Medium
@@ -59,12 +62,41 @@ Zombie Ducks has four big layers:
 | --- | --- |
 | HTML | Creates the buttons, score display, board, message box, and settings page. |
 | CSS | Makes the game look 8-bit, spooky, toxic, and apocalyptic. |
-| JavaScript state | Stores things that change, like score, duck position, zombie positions, and difficulty. |
+| JavaScript state | Stores things that change, like score, selected maze, duck position, zombie positions, and difficulty. |
 | JavaScript functions | Run the game: draw the board, move characters, check collisions, and restart. |
 
 ## The Maze
 
-The maze is stored as an array of strings. Each string is one row of the board.
+The game has a list of mazes. Each maze has a name, a portal row, a player start
+position, zombie spawn points, and a map.
+
+```js
+const mazes = [
+  {
+    name: "Wrecked Pond",
+    portalRow: 8,
+    duckStart: { x: 1, y: 1 },
+    map: [
+      "#####################",
+      "#.........#.........#",
+      "#.###.###.#.###.###.#"
+    ]
+  },
+  {
+    name: "Toxic Tunnels",
+    portalRow: 9,
+    duckStart: { x: 1, y: 1 },
+    map: [
+      "#########################",
+      "#...........#...........#",
+      "#.###.#####.#.#####.###.#"
+    ]
+  }
+];
+```
+
+Inside each maze, the map is stored as an array of strings. Each string is one
+row of the board.
 
 ```js
 const map = [
@@ -94,15 +126,41 @@ In this map:
 - `.` means open space.
 - The two open dots at the far left and far right of row 8 are the portals.
 
-The code works out the size of the board like this:
+The code works out the size of the selected board like this:
 
 ```js
-const width = map[0].length;
-const height = map.length;
+let map = currentMaze.map;
+let width = map[0].length;
+let height = map.length;
 ```
 
 That means if the map changes size, the game can still understand its width and
 height.
+
+## Choosing A Maze
+
+The current maze number is saved in `localStorage`, so the browser can remember
+which maze was selected.
+
+```js
+let mazeIndex = Number(localStorage.getItem("zombieDucksMaze") || 0);
+```
+
+The `loadMaze()` function updates the important maze variables.
+
+```js
+function loadMaze(index) {
+  mazeIndex = mazes[index] ? index : 0;
+  currentMaze = mazes[mazeIndex];
+  map = currentMaze.map;
+  width = map[0].length;
+  height = map.length;
+  portalRow = currentMaze.portalRow;
+  zombieSpawns = currentMaze.zombieSpawns;
+}
+```
+
+This is why the bigger second maze can work without rewriting the whole game.
 
 ## Game State
 
@@ -295,10 +353,11 @@ This copies the names with `[...randomZombieNames]`, then shuffles them.
 
 ## Portals
 
-The portals are at the left and right edges of one row.
+The portals are at the left and right edges of one row. Each maze can choose a
+different portal row.
 
 ```js
-const portalRow = 8;
+let portalRow = currentMaze.portalRow;
 ```
 
 This function checks whether a square is a portal:
@@ -660,6 +719,8 @@ Here is a quick guide to the main functions:
 | --- | --- |
 | `activeDifficulty()` | Gets the current difficulty settings. |
 | `createZombies()` | Creates named zombie ducks for the chosen difficulty. |
+| `loadMaze()` | Loads the selected maze and updates the board size. |
+| `renderMazeOptions()` | Builds the settings page maze buttons. |
 | `renderDifficultyOptions()` | Builds the settings page difficulty buttons. |
 | `ensureAudio()` | Starts the browser audio system if music is on. |
 | `playTone()` | Plays one retro music note. |
@@ -784,7 +845,7 @@ to chase the duck around walls.
 ## Ideas To Try Next
 
 - Add a power-up that scares zombie ducks for a few seconds.
-- Add a second maze.
+- Add a third maze.
 - Give each named zombie a different color.
 - Add a pause button.
 - Add a high-score screen.

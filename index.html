@@ -135,7 +135,7 @@
       position: relative;
       margin: 0 auto;
       width: min(96vw, 820px);
-      aspect-ratio: 21 / 17;
+      aspect-ratio: var(--cols, 21) / var(--rows, 17);
       border: 6px solid #070b0d;
       border-radius: 0;
       overflow: hidden;
@@ -148,8 +148,8 @@
         var(--pond);
       background-size:
         100% 4px,
-        calc(100% / 21) calc(100% / 17),
-        calc(100% / 21) calc(100% / 17),
+        calc(100% / var(--cols, 21)) calc(100% / var(--rows, 17)),
+        calc(100% / var(--cols, 21)) calc(100% / var(--rows, 17)),
         auto,
         auto,
         auto;
@@ -162,10 +162,10 @@
 
     .cell {
       position: absolute;
-      width: calc(100% / 21);
-      height: calc(100% / 17);
-      left: calc(var(--x) * 100% / 21);
-      top: calc(var(--y) * 100% / 17);
+      width: calc(100% / var(--cols, 21));
+      height: calc(100% / var(--rows, 17));
+      left: calc(var(--x) * 100% / var(--cols, 21));
+      top: calc(var(--y) * 100% / var(--rows, 17));
     }
 
     .wall {
@@ -252,8 +252,8 @@
 
     .actor {
       position: absolute;
-      width: calc(100% / 21);
-      height: calc(100% / 17);
+      width: calc(100% / var(--cols, 21));
+      height: calc(100% / var(--rows, 17));
       transform: translate(
         calc(var(--x) * 100%),
         calc(var(--y) * 100%)
@@ -598,6 +598,7 @@
         <span class="pill">Score <span id="score">0</span></span>
         <span class="pill">Snacks <span id="left">0</span></span>
         <span class="pill">Best <span id="best">0</span></span>
+        <span class="pill">Maze <span id="mazeLabel">1</span></span>
         <span class="pill">Mode <span id="difficultyLabel">Medium</span></span>
       </div>
       <div class="actions">
@@ -620,7 +621,8 @@
     <section class="settings-page" id="settingsPage" aria-label="Settings" hidden>
       <div class="settings-card">
         <h2>Settings</h2>
-        <p>Difficulty changes how many named zombie ducks chase you and how fast they glide.</p>
+        <p>Choose a maze, then set how many named zombie ducks chase you and how fast they glide.</p>
+        <div class="difficulty-list" id="mazeList"></div>
         <div class="difficulty-list" id="difficultyList"></div>
         <div class="settings-actions">
           <button id="closeSettings" type="button">Close</button>
@@ -640,30 +642,85 @@
   </main>
 
   <script>
-    const map = [
-      "#####################",
-      "#.........#.........#",
-      "#.###.###.#.###.###.#",
-      "#.#.....#...#.....#.#",
-      "#.#.###.#####.###.#.#",
-      "#...#.........#.....#",
-      "###.#.###.#.###.#.###",
-      "#.....#...#...#.....#",
-      "..###.#.#####.#.###..",
-      "#...#...#...#...#...#",
-      "###.#.###.#.###.#.###",
-      "#.....#.......#.....#",
-      "#.###.#.#####.#.###.#",
-      "#.#.....#...#.....#.#",
-      "#.###.###.#.###.###.#",
-      "#.........#.........#",
-      "#####################"
+    const mazes = [
+      {
+        name: "Wrecked Pond",
+        note: "The original ruined pond.",
+        portalRow: 8,
+        duckStart: { x: 1, y: 1 },
+        zombieSpawns: [
+          { x: 19, y: 15, mood: "direct" },
+          { x: 19, y: 1, mood: "ambush" },
+          { x: 1, y: 15, mood: "wander" },
+          { x: 9, y: 9, mood: "direct" },
+          { x: 11, y: 9, mood: "ambush" },
+          { x: 5, y: 7, mood: "wander" }
+        ],
+        map: [
+          "#####################",
+          "#.........#.........#",
+          "#.###.###.#.###.###.#",
+          "#.#.....#...#.....#.#",
+          "#.#.###.#####.###.#.#",
+          "#...#.........#.....#",
+          "###.#.###.#.###.#.###",
+          "#.....#...#...#.....#",
+          "..###.#.#####.#.###..",
+          "#...#...#...#...#...#",
+          "###.#.###.#.###.#.###",
+          "#.....#.......#.....#",
+          "#.###.#.#####.#.###.#",
+          "#.#.....#...#.....#.#",
+          "#.###.###.#.###.###.#",
+          "#.........#.........#",
+          "#####################"
+        ]
+      },
+      {
+        name: "Toxic Tunnels",
+        note: "Bigger, twistier, and harder to clear.",
+        portalRow: 9,
+        duckStart: { x: 1, y: 1 },
+        zombieSpawns: [
+          { x: 23, y: 17, mood: "direct" },
+          { x: 23, y: 1, mood: "ambush" },
+          { x: 1, y: 17, mood: "wander" },
+          { x: 12, y: 11, mood: "direct" },
+          { x: 19, y: 13, mood: "ambush" },
+          { x: 5, y: 13, mood: "wander" }
+        ],
+        map: [
+          "#########################",
+          "#...........#...........#",
+          "#.###.#####.#.#####.###.#",
+          "#.#.....#.....#.....#.#.#",
+          "#.#.###.#.###.#.###.#.#.#",
+          "#...#.....#.....#.....#.#",
+          "###.#.###.#.###.#.###.#.#",
+          "#.....#...#...#...#.....#",
+          "#.###.#.#####.#####.#.###",
+          "..#...#.....#.....#......",
+          "###.#.#####.#.#####.#.###",
+          "#...#...#.......#...#...#",
+          "#.#####.#.#####.#.#####.#",
+          "#.......#...#...#.......#",
+          "#.###.#####.#.#####.###.#",
+          "#.#.....#.....#.....#.#.#",
+          "#.#.###.#.###.#.###.#.#.#",
+          "#...........#...........#",
+          "#########################"
+        ]
+      }
     ];
 
-    const width = map[0].length;
-    const height = map.length;
+    let mazeIndex = Number(localStorage.getItem("zombieDucksMaze") || 0);
+    if (!mazes[mazeIndex]) mazeIndex = 0;
+    let currentMaze = mazes[mazeIndex];
+    let map = currentMaze.map;
+    let width = map[0].length;
+    let height = map.length;
     const turnAssistCells = 0.48;
-    const portalRow = 8;
+    let portalRow = currentMaze.portalRow;
     const difficultySettings = {
       "Really Easy": {
         duckSpeed: 5.05,
@@ -699,14 +756,7 @@
     const difficultyNames = Object.keys(difficultySettings);
     const zombieBaseNames = ["Bobi", "Mylo"];
     const randomZombieNames = ["Luna", "Kai", "Mina", "Nova", "Jax", "Ivy", "Rex", "Zara", "Ozzy", "Nico"];
-    const zombieSpawns = [
-      { x: 19, y: 15, mood: "direct" },
-      { x: 19, y: 1, mood: "ambush" },
-      { x: 1, y: 15, mood: "wander" },
-      { x: 9, y: 9, mood: "direct" },
-      { x: 11, y: 9, mood: "ambush" },
-      { x: 5, y: 7, mood: "wander" }
-    ];
+    let zombieSpawns = currentMaze.zombieSpawns;
     const dirs = {
       up: { name: "up", x: 0, y: -1 },
       down: { name: "down", x: 0, y: 1 },
@@ -718,6 +768,7 @@
     const scoreEl = document.querySelector("#score");
     const leftEl = document.querySelector("#left");
     const bestEl = document.querySelector("#best");
+    const mazeLabel = document.querySelector("#mazeLabel");
     const difficultyLabel = document.querySelector("#difficultyLabel");
     const soundButton = document.querySelector("#sound");
     const restartButton = document.querySelector("#restart");
@@ -725,6 +776,7 @@
     const startButton = document.querySelector("#start");
     const message = document.querySelector("#message");
     const settingsPage = document.querySelector("#settingsPage");
+    const mazeList = document.querySelector("#mazeList");
     const difficultyList = document.querySelector("#difficultyList");
     const closeSettingsButton = document.querySelector("#closeSettings");
     const applySettingsButton = document.querySelector("#applySettings");
@@ -750,8 +802,21 @@
     let zombieNodes = [];
 
     bestEl.textContent = best;
+    mazeLabel.textContent = mazeIndex + 1;
     difficultyLabel.textContent = difficulty;
     updateSoundButton();
+
+    function loadMaze(index) {
+      mazeIndex = mazes[index] ? index : 0;
+      currentMaze = mazes[mazeIndex];
+      map = currentMaze.map;
+      width = map[0].length;
+      height = map.length;
+      portalRow = currentMaze.portalRow;
+      zombieSpawns = currentMaze.zombieSpawns;
+      stage.style.setProperty("--cols", width);
+      stage.style.setProperty("--rows", height);
+    }
 
     function activeDifficulty() {
       return difficultySettings[difficulty];
@@ -773,6 +838,21 @@
         name: names[index] || `Z-${index + 1}`,
         direction: null
       }));
+    }
+
+    function renderMazeOptions() {
+      mazeList.innerHTML = "";
+
+      mazes.forEach((maze, index) => {
+        const label = document.createElement("label");
+        label.className = "difficulty-option";
+        label.innerHTML = `
+          <input type="radio" name="maze" value="${index}">
+          <span>Maze ${index + 1}: ${maze.name}<span class="difficulty-note">${maze.note}</span></span>
+        `;
+        label.querySelector("input").checked = index === mazeIndex;
+        mazeList.append(label);
+      });
     }
 
     function renderDifficultyOptions() {
@@ -937,13 +1017,14 @@
     }
 
     function isSpawn(x, y) {
-      return (x === 1 && y === 1) || zombieSpawns.some((spawn) => spawn.x === x && spawn.y === y);
+      return (x === currentMaze.duckStart.x && y === currentMaze.duckStart.y) ||
+        zombieSpawns.some((spawn) => spawn.x === x && spawn.y === y);
     }
 
     function resetGame(autoStart = false) {
       cancelAnimationFrame(loopId);
       score = 0;
-      duck = { x: 1, y: 1 };
+      duck = { ...currentMaze.duckStart };
       direction = dirs.right;
       queuedDirection = dirs.right;
       zombies = createZombies();
@@ -959,7 +1040,7 @@
         loopId = requestAnimationFrame(loop);
       } else {
         stopSoundtrack();
-        showMessage("Zombie Ducks", "Grab the glow scraps. Use side gates to ditch the undead ducks.", "Start");
+        showMessage(currentMaze.name, "Grab the glow scraps. Use side gates to ditch the undead ducks.", "Start");
       }
     }
 
@@ -967,6 +1048,7 @@
       scoreEl.textContent = score;
       leftEl.textContent = pellets.size;
       bestEl.textContent = best;
+      mazeLabel.textContent = mazeIndex + 1;
       difficultyLabel.textContent = difficulty;
     }
 
@@ -1171,7 +1253,12 @@
         }
       }
       if (zombie.mood === "wander" && score % 80 < 30) {
-        const corners = [{ x: 1, y: 1 }, { x: 19, y: 1 }, { x: 1, y: 15 }, { x: 19, y: 15 }];
+        const corners = [
+          { x: 1, y: 1 },
+          { x: width - 2, y: 1 },
+          { x: 1, y: height - 2 },
+          { x: width - 2, y: height - 2 }
+        ];
         target = corners[(Math.floor(score / 80) + index) % corners.length];
       }
       return target;
@@ -1326,6 +1413,7 @@
     }
 
     function openSettings() {
+      renderMazeOptions();
       renderDifficultyOptions();
       settingsPage.hidden = false;
     }
@@ -1335,10 +1423,22 @@
     }
 
     function applySettings() {
+      const selectedMaze = Number(mazeList.querySelector("input[name='maze']:checked")?.value);
       const selected = difficultyList.querySelector("input[name='difficulty']:checked")?.value;
-      if (selected && selected !== difficulty) {
+      const mazeChanged = mazes[selectedMaze] && selectedMaze !== mazeIndex;
+      const difficultyChanged = selected && selected !== difficulty;
+
+      if (mazeChanged) {
+        loadMaze(selectedMaze);
+        localStorage.setItem("zombieDucksMaze", mazeIndex);
+      }
+
+      if (difficultyChanged) {
         difficulty = selected;
         localStorage.setItem("zombieDucksDifficulty", difficulty);
+      }
+
+      if (mazeChanged || difficultyChanged) {
         resetGame(false);
       }
       updateHud();
@@ -1392,6 +1492,8 @@
     closeSettingsButton.addEventListener("click", closeSettings);
     applySettingsButton.addEventListener("click", applySettings);
 
+    loadMaze(mazeIndex);
+    renderMazeOptions();
     renderDifficultyOptions();
     resetGame(false);
   </script>
